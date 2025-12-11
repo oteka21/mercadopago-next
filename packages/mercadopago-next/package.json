@@ -1,0 +1,51 @@
+{
+  "name": "mercadopago-next",
+  "version": "1.0.0",
+  "description": "The simplest way to integrate Mercado Pago into your Next.js app",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.mjs",
+      "require": "./dist/server.cjs"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.mjs",
+      "require": "./dist/client.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsup --watch",
+    "build": "tsup"
+  },
+  "keywords": [
+    "mercadopago",
+    "nextjs",
+    "payments",
+    "checkout",
+    "subscriptions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.25.0",
+  "dependencies": {
+    "mercadopago": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  }
+}
