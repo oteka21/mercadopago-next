@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Guide - mercadopago-next</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">mercadopago-next</div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="setup.html">Setup</a>
+                <a href="examples.html">Examples</a>
+                <a href="https://github.com/oteka21/mercadopago-next" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container docs-container">
+        <h1>Setup Guide</h1>
+        
+        <section class="docs-section">
+            <h2>Installation</h2>
+            <p>Install the package using your preferred package manager:</p>
+            <div class="code-block">
+                <pre><code>npm install mercadopago-next
+# or
+pnpm add mercadopago-next
+# or
+yarn add mercadopago-next</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Environment Variables</h2>
+            <p>Add your Mercado Pago credentials to your <code>.env.local</code> file:</p>
+            <div class="code-block">
+                <pre><code>MP_ACCESS_TOKEN=your_access_token_here
+NEXT_PUBLIC_MP_PUBLIC_KEY=your_public_key_here
+NEXT_PUBLIC_APP_URL=http://localhost:3000</code></pre>
+            </div>
+            <p class="note">⚠️ Get your credentials from the <a href="https://www.mercadopago.com/developers" target="_blank">Mercado Pago Developers Portal</a></p>
+        </section>
+
+        <section class="docs-section">
+            <h2>Server-Side Setup</h2>
+            <p>Create a server instance in <code>lib/mp.ts</code>:</p>
+            <div class="code-block">
+                <pre><code>import { createMercadoPago } from "mercadopago-next/server";
+
+export const mp = createMercadoPago({
+  accessToken: process.env.MP_ACCESS_TOKEN!,
+  publicKey: process.env.NEXT_PUBLIC_MP_PUBLIC_KEY,
+  baseUrl: process.env.NEXT_PUBLIC_APP_URL,
+  
+  // Pre-configure products
+  products: {
+    basic_plan: {
+      title: "Basic Plan",
+      unitPrice: 999,
+      description: "Basic plan description",
+    },
+  },
+  
+  // Handle webhook events
+  onEvent: async (event) => {
+    if (event.type === "payment.approved") {
+      // Process payment
+      console.log("Payment approved:", event.data);
+    }
+  },
+});</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>API Route Setup</h2>
+            <p>Create an API route at <code>app/api/mp/[...all]/route.ts</code>:</p>
+            <div class="code-block">
+                <pre><code>import { mp } from "@/lib/mp";
+
+export const POST = mp.handler;
+export const GET = mp.handler;</code></pre>
+            </div>
+            <p>This single route handles all Mercado Pago operations including checkout, subscriptions, and webhooks.</p>
+        </section>
+
+        <section class="docs-section">
+            <h2>Client-Side Setup</h2>
+            <p>Create a client instance in <code>lib/mp-client.ts</code>:</p>
+            <div class="code-block">
+                <pre><code>import { createMPClient } from "mercadopago-next/client";
+
+export const mpClient = createMPClient({
+  baseUrl: "/api/mp",
+});</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Usage in Components</h2>
+            <p>Now you can use the client in your React components:</p>
+            <div class="code-block">
+                <pre><code>"use client";
+
+import { mpClient } from "@/lib/mp-client";
+
+export default function CheckoutButton() {
+  const handleCheckout = async () => {
+    await mpClient.checkout({ productId: "basic_plan" });
+  };
+
+  return (
+    &lt;button onClick={handleCheckout}&gt;
+      Buy Now
+    &lt;/button&gt;
+  );
+}</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Next Steps</h2>
+            <p>Check out the <a href="examples.html">examples page</a> for more detailed use cases including:</p>
+            <ul>
+                <li>Dynamic checkout with custom items</li>
+                <li>Subscription management</li>
+                <li>Webhook handling</li>
+                <li>Error handling</li>
+            </ul>
+        </section>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 mercadopago-next. MIT License.</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examples - mercadopago-next</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">mercadopago-next</div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="setup.html">Setup</a>
+                <a href="examples.html">Examples</a>
+                <a href="https://github.com/oteka21/mercadopago-next" target="_blank">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container docs-container">
+        <h1>Code Examples</h1>
+        
+        <section class="docs-section">
+            <h2>Pre-configured Product Checkout</h2>
+            <p>The simplest way to create a checkout with pre-configured products:</p>
+            <div class="code-block">
+                <pre><code>"use client";
+
+import { mpClient } from "@/lib/mp-client";
+
+export default function ProductButton() {
+  const handleCheckout = async () => {
+    await mpClient.checkout({ 
+      productId: "premium_monthly" 
+    });
+  };
+
+  return &lt;button onClick={handleCheckout}&gt;Buy Premium&lt;/button&gt;;
+}</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Dynamic Checkout with Custom Items</h2>
+            <p>Create checkout with items passed at runtime:</p>
+            <div class="code-block">
+                <pre><code>"use client";
+
+import { mpClient } from "@/lib/mp-client";
+
+export default function CustomCheckout() {
+  const handleCheckout = async () => {
+    await mpClient.checkout({
+      items: [
+        {
+          title: "Custom Product",
+          unitPrice: 1500,
+          quantity: 2,
+          description: "A custom product",
+        },
+      ],
+      metadata: {
+        orderId: "ORDER-123",
+        userId: "user-456",
+      },
+    });
+  };
+
+  return &lt;button onClick={handleCheckout}&gt;Checkout&lt;/button&gt;;
+}</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Subscription Creation</h2>
+            <p>Create recurring subscriptions:</p>
+            <div class="code-block">
+                <pre><code>"use client";
+
+import { mpClient } from "@/lib/mp-client";
+import { useState } from "react";
+
+export default function SubscribeButton() {
+  const [email, setEmail] = useState("");
+
+  const handleSubscribe = async () => {
+    await mpClient.subscribe({
+      planId: "premium_subscription",
+      payerEmail: email,
+    });
+  };
+
+  return (
+    &lt;div&gt;
+      &lt;input 
+        type="email" 
+        value={email}
+        onChange={(e) =&gt; setEmail(e.target.value)}
+        placeholder="your@email.com"
+      /&gt;
+      &lt;button onClick={handleSubscribe}&gt;Subscribe&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Server-Side Configuration</h2>
+            <p>Complete server configuration example with products, plans, and webhooks:</p>
+            <div class="code-block">
+                <pre><code>import { createMercadoPago } from "mercadopago-next/server";
+
+export const mp = createMercadoPago({
+  accessToken: process.env.MP_ACCESS_TOKEN!,
+  publicKey: process.env.NEXT_PUBLIC_MP_PUBLIC_KEY,
+  baseUrl: process.env.NEXT_PUBLIC_APP_URL,
+  
+  // Pre-configured products
+  products: {
+    premium_monthly: {
+      title: "Premium Monthly",
+      unitPrice: 999,
+      description: "Monthly premium access",
+      currencyId: "ARS",
+    },
+    premium_yearly: {
+      title: "Premium Yearly",
+      unitPrice: 9990,
+      description: "Yearly premium - Save 17%",
+      currencyId: "ARS",
+    },
+  },
+  
+  // Pre-configured subscription plans
+  plans: {
+    premium_subscription: {
+      reason: "Premium Subscription",
+      transactionAmount: 999,
+      frequency: 1,
+      frequencyType: "months",
+    },
+  },
+  
+  // Handle webhook events
+  onEvent: async (event) => {
+    console.log("[MP Event]", event.type, event.id);
+
+    switch (event.type) {
+      case "payment.approved":
+        // Fulfill order
+        await fulfillOrder(event.data);
+        break;
+
+      case "payment.rejected":
+        // Handle rejection
+        await handleRejection(event.data);
+        break;
+
+      case "subscription.authorized":
+        // Grant subscription access
+        await grantAccess(event.data);
+        break;
+
+      case "subscription.cancelled":
+        // Revoke subscription access
+        await revokeAccess(event.data);
+        break;
+    }
+  },
+});</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Error Handling</h2>
+            <p>Proper error handling for checkout operations:</p>
+            <div class="code-block">
+                <pre><code>"use client";
+
+import { mpClient } from "@/lib/mp-client";
+import { useState } from "react";
+
+export default function CheckoutWithError() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState&lt;string | null&gt;(null);
+
+  const handleCheckout = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      await mpClient.checkout({ productId: "premium_monthly" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Checkout failed");
+      console.error("Checkout error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    &lt;div&gt;
+      &lt;button onClick={handleCheckout} disabled={loading}&gt;
+        {loading ? "Processing..." : "Buy Now"}
+      &lt;/button&gt;
+      {error && &lt;p className="error"&gt;{error}&lt;/p&gt;}
+    &lt;/div&gt;
+  );
+}</code></pre>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Full Example App</h2>
+            <p>Check out the complete example application in the repository:</p>
+            <ul>
+                <li><a href="https://github.com/oteka21/mercadopago-next/tree/main/apps/example" target="_blank">View Example App</a></li>
+                <li>Includes multiple payment types</li>
+                <li>Full UI with Tailwind CSS</li>
+                <li>Webhook handling</li>
+                <li>Error states and loading indicators</li>
+            </ul>
+        </section>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 mercadopago-next. MIT License.</p>
+        </div>
+    </footer>
+</body>
+</html>
