@@ -49,9 +49,27 @@ export async function createCheckout(
     preferenceBody.external_reference = data.externalReference;
   }
 
-  if (data.payerEmail) {
+  // notification_url — required for whitelabel integration quality
+  const notificationUrl = data.notificationUrl || config.notificationUrl;
+  if (notificationUrl) {
+    preferenceBody.notification_url = notificationUrl;
+  }
+
+  // Build payer object — more fields = better fraud scoring = whitelabel
+  if (data.payerEmail || data.payerFirstName || data.payerLastName || data.payerIdentification || data.payerPhone) {
     preferenceBody.payer = {
-      email: data.payerEmail,
+      ...(data.payerEmail && { email: data.payerEmail }),
+      ...(data.payerFirstName && { first_name: data.payerFirstName }),
+      ...(data.payerLastName && { last_name: data.payerLastName }),
+      ...(data.payerIdentification && {
+        identification: {
+          type: data.payerIdentification.type,
+          number: data.payerIdentification.number,
+        },
+      }),
+      ...(data.payerPhone && {
+        phone: { number: data.payerPhone },
+      }),
     };
   }
 

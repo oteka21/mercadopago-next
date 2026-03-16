@@ -13,6 +13,7 @@ The simplest way to integrate Mercado Pago into your Next.js app.
 - **Webhook handling** - Normalized events with `onEvent` callback
 - **Pre-configured products** - Define products once, reference by ID
 - **Next.js App Router** - First-class support for the new App Router
+- **Whitelabel-ready** - Supports all fields required to pass MP's integration quality checklist (enables Efecty and other offline methods)
 
 ## Installation
 
@@ -97,18 +98,19 @@ That's it! Clicking the button redirects to Mercado Pago checkout.
 
 ### `createMercadoPago(config)`
 
-| Option          | Type                               | Required | Description                              |
-| --------------- | ---------------------------------- | -------- | ---------------------------------------- |
-| `accessToken`   | `string`                           | Yes      | Your MP access token                     |
-| `publicKey`     | `string`                           | No       | Public key (returned via `/config`)      |
-| `webhookSecret` | `string`                           | No       | Secret for webhook signature             |
-| `baseUrl`       | `string`                           | No       | Your app's base URL (for redirects)      |
-| `successUrl`    | `string`                           | No       | Redirect URL after successful payment    |
-| `failureUrl`    | `string`                           | No       | Redirect URL after failed payment        |
-| `pendingUrl`    | `string`                           | No       | Redirect URL for pending payment         |
-| `products`      | `Record<string, ProductConfig>`    | No       | Pre-configured products                  |
-| `plans`         | `Record<string, PlanConfig>`       | No       | Pre-configured subscription plans        |
-| `onEvent`       | `(event: MPEvent) => Promise<void>`| No       | Webhook event handler                    |
+| Option            | Type                               | Required | Description                                          |
+| ----------------- | ---------------------------------- | -------- | ---------------------------------------------------- |
+| `accessToken`     | `string`                           | Yes      | Your MP access token                                 |
+| `publicKey`       | `string`                           | No       | Public key (returned via `/config`)                  |
+| `webhookSecret`   | `string`                           | No       | Secret for webhook signature                         |
+| `baseUrl`         | `string`                           | No       | Your app's base URL (for redirects)                  |
+| `notificationUrl` | `string`                           | No       | Webhook URL sent to MP — required for whitelabel     |
+| `successUrl`      | `string`                           | No       | Redirect URL after successful payment                |
+| `failureUrl`      | `string`                           | No       | Redirect URL after failed payment                    |
+| `pendingUrl`      | `string`                           | No       | Redirect URL for pending payment                     |
+| `products`        | `Record<string, ProductConfig>`    | No       | Pre-configured products                              |
+| `plans`           | `Record<string, PlanConfig>`       | No       | Pre-configured subscription plans                    |
+| `onEvent`         | `(event: MPEvent) => Promise<void>`| No       | Webhook event handler                                |
 
 ### Product Configuration
 
@@ -162,17 +164,33 @@ const { url } = await mpClient.checkout({
   productId: "premium",
   redirect: false,
 });
+
+// With full payer data (recommended — improves approval rate and enables offline methods like Efecty)
+await mpClient.checkout({
+  productId: "premium",
+  externalReference: order.id,
+  payerEmail: user.email,
+  payerFirstName: user.firstName,
+  payerLastName: user.lastName,
+  payerPhone: user.phone,
+  payerIdentification: { type: "CC", number: user.cedula },
+});
 ```
 
-| Option              | Type             | Description                        |
-| ------------------- | ---------------- | ---------------------------------- |
-| `productId`         | `string`         | Pre-configured product ID          |
-| `items`             | `CheckoutItem[]` | Custom items (alt to productId)    |
-| `quantity`          | `number`         | Quantity for productId (default: 1)|
-| `metadata`          | `object`         | Custom data attached to preference |
-| `payerEmail`        | `string`         | Pre-fill payer email               |
-| `externalReference` | `string`         | Your internal reference            |
-| `redirect`          | `boolean`        | Auto-redirect (default: true)      |
+| Option                | Type                               | Description                                            |
+| --------------------- | ---------------------------------- | ------------------------------------------------------ |
+| `productId`           | `string`                           | Pre-configured product ID                              |
+| `items`               | `CheckoutItem[]`                   | Custom items (alt to productId)                        |
+| `quantity`            | `number`                           | Quantity for productId (default: 1)                    |
+| `metadata`            | `object`                           | Custom data attached to preference                     |
+| `externalReference`   | `string`                           | Your internal order ID — required for whitelabel       |
+| `notificationUrl`     | `string`                           | Override webhook URL for this checkout                 |
+| `payerEmail`          | `string`                           | Payer email — improves fraud scoring                   |
+| `payerFirstName`      | `string`                           | Payer first name — improves fraud scoring              |
+| `payerLastName`       | `string`                           | Payer last name — improves fraud scoring               |
+| `payerPhone`          | `string`                           | Payer phone number — improves fraud scoring            |
+| `payerIdentification` | `{ type: string; number: string }` | Payer ID document (CC, NIT, etc.) — improves scoring   |
+| `redirect`            | `boolean`                          | Auto-redirect (default: true)                          |
 
 ### `mpClient.subscribe(options)`
 
