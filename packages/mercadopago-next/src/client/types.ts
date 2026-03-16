@@ -22,10 +22,25 @@ export interface MPClientCheckoutOptions {
   /** Metadata */
   metadata?: Record<string, unknown>;
 
-  /** Payer email */
+  /** Payer email — improves fraud scoring */
   payerEmail?: string;
 
-  /** External reference */
+  /** Payer first name — improves fraud scoring */
+  payerFirstName?: string;
+
+  /** Payer last name — improves fraud scoring */
+  payerLastName?: string;
+
+  /** Payer identification (CC, NIT, etc.) — improves fraud scoring */
+  payerIdentification?: {
+    type: string;
+    number: string;
+  };
+
+  /** Payer phone — improves fraud scoring */
+  payerPhone?: string;
+
+  /** External reference — required for whitelabel */
   externalReference?: string;
 
   /** Override success URL */

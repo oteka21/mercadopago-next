@@ -32,6 +32,9 @@ export interface MercadoPagoConfig {
 
   /** Webhook event handler - called when MP sends notifications */
   onEvent?: (event: MPEvent) => Promise<void>;
+
+  /** Webhook notification URL — required for whitelabel integration quality */
+  notificationUrl?: string;
 }
 
 export interface ProductConfig {
@@ -65,16 +68,34 @@ export interface CheckoutRequest {
   /** Custom metadata to attach to preference */
   metadata?: Record<string, unknown>;
 
-  /** Payer email (optional) */
+  /** Payer email — improves fraud scoring */
   payerEmail?: string;
 
-  /** External reference for your system */
+  /** Payer first name — improves fraud scoring */
+  payerFirstName?: string;
+
+  /** Payer last name — improves fraud scoring */
+  payerLastName?: string;
+
+  /** Payer identification (CC, NIT, etc.) — improves fraud scoring */
+  payerIdentification?: {
+    type: string;
+    number: string;
+  };
+
+  /** Payer phone — improves fraud scoring */
+  payerPhone?: string;
+
+  /** External reference for your system — required for whitelabel */
   externalReference?: string;
 
   /** Override success/failure URLs for this checkout */
   successUrl?: string;
   failureUrl?: string;
   pendingUrl?: string;
+
+  /** Override notification URL for this checkout */
+  notificationUrl?: string;
 }
 
 export interface CheckoutItem {

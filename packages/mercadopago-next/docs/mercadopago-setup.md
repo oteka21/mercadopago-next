@@ -10,6 +10,7 @@ This guide walks you through setting up MercadoPago for use with `mercadopago-ne
 4. [Configure Webhooks](#4-configure-webhooks)
 5. [Expose Local Port for Development](#5-expose-local-port-for-development)
 6. [Test Cards](#6-test-cards)
+7. [Integration Quality (Whitelabel)](#7-integration-quality-whitelabel)
 
 ---
 
@@ -207,6 +208,56 @@ Use these test cards when completing payments as the Buyer:
 - [ ] Set up tunnel for local development
 - [ ] Configured webhook URL in MercadoPago
 - [ ] Tested payment flow with test cards
+
+---
+
+## 7. Integration Quality (Whitelabel)
+
+MercadoPago evaluates your integration quality and assigns it a tier:
+
+| Tier | Description | Effect |
+|---|---|---|
+| `blacklabel` | Integration missing required fields | Offline payments (Efecty, etc.) rejected with `rejected_high_risk` |
+| `whitelabel` | Integration passes quality checklist | All payment methods enabled |
+
+### How to reach whitelabel
+
+Send all of these fields in every preference:
+
+```ts
+export const mp = createMercadoPago({
+  accessToken: process.env.MP_ACCESS_TOKEN!,
+  notificationUrl: "https://your-app.com/api/mp/webhook", // ← required
+  // ...
+});
+
+await mpClient.checkout({
+  externalReference: order.id,      // ← your internal order ID
+  payerEmail: user.email,           // ← real buyer email
+  payerFirstName: user.firstName,
+  payerLastName: user.lastName,
+  payerPhone: user.phone,
+  payerIdentification: {
+    type: "CC",                     // CC, NIT, CE, etc.
+    number: user.documentNumber,
+  },
+});
+```
+
+### Check your integration quality
+
+In the MercadoPago developer dashboard:
+1. Go to [mercadopago.com/developers](https://www.mercadopago.com/developers)
+2. Select your application
+3. Click **"Integration Quality"**
+4. Complete any missing items in the checklist
+
+### Important: Efecty and offline payments
+
+- Efecty is only available in **Colombia (COP)**
+- It only works for `whitelabel` integrations
+- Always set `binary_mode: false` — Efecty payments are always `pending` first (the buyer pays at a physical location)
+- Do **not** test with your own MercadoPago account as the buyer — it will be rejected as `rejected_high_risk`
 
 ---
 
