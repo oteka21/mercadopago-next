@@ -1,5 +1,8 @@
 import type { PaymentResponse } from "mercadopago/dist/clients/payment/commonTypes";
 import type { PreApprovalResponse } from "mercadopago/dist/clients/preApproval/commonTypes";
+import type { MPItemCategory } from "../shared/types";
+
+export type { MPItemCategory };
 
 // ============ CONFIG ============
 export interface MercadoPagoConfig {
@@ -43,7 +46,7 @@ export interface ProductConfig {
   currencyId?: string; // Default: "ARS"
   description?: string;
   pictureUrl?: string;
-  categoryId?: string;
+  categoryId?: MPItemCategory;
 }
 
 export interface PlanConfig {
@@ -106,6 +109,8 @@ export interface CheckoutItem {
   currencyId?: string;
   description?: string;
   pictureUrl?: string;
+  /** MP category ID — improves fraud scoring. See: https://api.mercadopago.com/item_categories */
+  categoryId?: MPItemCategory;
 }
 
 export interface CheckoutResponse {

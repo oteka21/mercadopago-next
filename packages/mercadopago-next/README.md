@@ -192,6 +192,40 @@ await mpClient.checkout({
 | `payerIdentification` | `{ type: string; number: string }` | Payer ID document (CC, NIT, etc.) — improves scoring   |
 | `redirect`            | `boolean`                          | Auto-redirect (default: true)                          |
 
+### `CheckoutItem`
+
+| Field         | Type              | Description                                                    |
+| ------------- | ----------------- | -------------------------------------------------------------- |
+| `title`       | `string`          | Item name                                                      |
+| `unitPrice`   | `number`          | Price per unit                                                 |
+| `quantity`    | `number`          | Quantity                                                       |
+| `description` | `string`          | Item description — improves fraud scoring                      |
+| `categoryId`  | `MPItemCategory`  | MP category — improves fraud scoring (see below)               |
+| `pictureUrl`  | `string`          | Item image URL                                                 |
+| `currencyId`  | `string`          | Currency (default: `"ARS"`)                                    |
+
+### `MPItemCategory`
+
+```ts
+import type { MPItemCategory } from "mercadopago-next/server";
+```
+
+| Value           | Description                          |
+| --------------- | ------------------------------------ |
+| `virtual_goods` | E-books, credits, digital files, etc |
+| `services`      | General services                     |
+| `learnings`     | Courses, workshops, trainings        |
+| `games`         | Online games & credits               |
+| `entertainment` | Music, movies, books, toys           |
+| `electronics`   | Audio, video, GPS                    |
+| `fashion`       | Clothing, shoes, accessories         |
+| `home`          | Appliances, garden                   |
+| `tickets`       | Events, concerts, sports             |
+| `travels`       | Flights, hotels, vouchers            |
+| `others`        | Other categories                     |
+
+Full list: `art`, `baby`, `coupons`, `donations`, `computing`, `cameras`, `video_games`, `television`, `car_electronics`, `automotive`, `musical`, `phones`
+
 ### `mpClient.subscribe(options)`
 
 Start a subscription flow.

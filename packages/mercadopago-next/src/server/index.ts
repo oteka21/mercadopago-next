@@ -16,4 +16,5 @@ export type {
   MPEventType,
   MPEventData,
   WebhookBody,
+  MPItemCategory,
 } from "./types";

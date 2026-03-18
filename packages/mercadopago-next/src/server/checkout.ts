@@ -35,6 +35,7 @@ export async function createCheckout(
       currency_id: item.currencyId || DEFAULT_CURRENCY,
       description: item.description,
       picture_url: item.pictureUrl,
+      category_id: item.categoryId,
     })),
     back_urls: backUrls,
     auto_return: "approved",

@@ -1,3 +1,7 @@
+import type { MPItemCategory } from "../shared/types";
+
+export type { MPItemCategory };
+
 export interface MPClientConfig {
   /** Base URL of your API route, e.g. "/api/mp" */
   baseUrl: string;
@@ -14,6 +18,8 @@ export interface MPClientCheckoutOptions {
     quantity: number;
     description?: string;
     pictureUrl?: string;
+    /** MP category ID — improves fraud scoring. See: https://api.mercadopago.com/item_categories */
+    categoryId?: MPItemCategory;
   }>;
 
   /** Quantity for productId (default: 1) */
