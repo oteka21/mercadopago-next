@@ -118,6 +118,7 @@ function buildItems(
         currencyId: product.currencyId,
         description: product.description,
         pictureUrl: product.pictureUrl,
+        categoryId: product.categoryId,
       },
     ];
   }

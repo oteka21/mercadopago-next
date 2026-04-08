@@ -269,20 +269,36 @@ onEvent: async (event) => {
 
 ### Event Types
 
-| Event                     | Description                    |
-| ------------------------- | ------------------------------ |
-| `payment.created`         | Payment was created            |
-| `payment.approved`        | Payment was approved           |
-| `payment.pending`         | Payment is pending             |
-| `payment.in_process`      | Payment is being processed     |
-| `payment.rejected`        | Payment was rejected           |
-| `payment.cancelled`       | Payment was cancelled          |
-| `payment.refunded`        | Payment was refunded           |
-| `payment.charged_back`    | Payment was charged back       |
-| `subscription.authorized` | Subscription was authorized    |
-| `subscription.pending`    | Subscription is pending        |
-| `subscription.paused`     | Subscription was paused        |
-| `subscription.cancelled`  | Subscription was cancelled     |
+| Event                     | Description                                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `payment.created`         | Payment was created                                                                                  |
+| `payment.approved`        | Payment was approved — safe to fulfill order                                                        |
+| `payment.pending`         | Payment is pending — waiting for buyer action (e.g. Efecty: buyer must pay at a physical location)  |
+| `payment.in_process`      | Payment is being reviewed by MP                                                                     |
+| `payment.rejected`        | Payment was rejected by MP or the issuer                                                            |
+| `payment.cancelled`       | **Expired** — Efecty/offline payments expire after 3 days; or buyer abandoned the checkout. This is NOT the same as rejected — the buyer can retry |
+| `payment.refunded`        | Payment was refunded                                                                                 |
+| `payment.charged_back`    | Payment was charged back (dispute)                                                                  |
+| `subscription.authorized` | Subscription was authorized                                                                         |
+| `subscription.pending`    | Subscription is pending                                                                             |
+| `subscription.paused`     | Subscription was paused                                                                             |
+| `subscription.cancelled`  | Subscription was cancelled                                                                          |
+
+> **Important — `payment.cancelled` vs `payment.rejected`**: Do not map both to the same database status. `cancelled` means the payment window expired or the user abandoned checkout — the user is allowed to try again. `rejected` means the transaction was actively refused. If you map `cancelled` to `rejected` in your DB and then block re-registration on rejected status, you will lock out users who simply let their Efecty ticket expire.
+
+### Webhook Security
+
+Set `webhookSecret` to verify that webhooks come from MercadoPago and not from a third party:
+
+```ts
+export const mp = createMercadoPago({
+  accessToken: process.env.MP_ACCESS_TOKEN!,
+  webhookSecret: process.env.MP_WEBHOOK_SECRET!, // ← enable signature verification
+  // ...
+});
+```
+
+When `webhookSecret` is set, the handler verifies the `x-signature` header on every incoming webhook. Requests with an invalid or missing signature are rejected with `401`. The secret is found in your MercadoPago dashboard under **Webhooks → Signature**.
 
 ---
 
@@ -346,6 +362,118 @@ See the [MercadoPago Setup Guide](./docs/mercadopago-setup.md) for step-by-step 
 - Setting up test accounts
 - Configuring webhooks
 - Testing locally with tunnels
+
+---
+
+## Production Patterns
+
+### Correct `onEvent` handler
+
+Map each event to the appropriate status in your database. Never collapse `cancelled` into `rejected`:
+
+```ts
+onEvent: async (event) => {
+  const HANDLED_EVENTS = [
+    "payment.approved",
+    "payment.rejected",
+    "payment.pending",
+    "payment.cancelled",
+  ] as const;
+
+  if (!HANDLED_EVENTS.includes(event.type as (typeof HANDLED_EVENTS)[number])) return;
+
+  const statusMap = {
+    "payment.approved":  "approved",
+    "payment.rejected":  "rejected",
+    "payment.pending":   "pending",
+    "payment.cancelled": "cancelled", // ← keep separate from "rejected"
+  } as const;
+
+  await db
+    .update(orders)
+    .set({ paymentStatus: statusMap[event.type] })
+    .where(eq(orders.mpExternalRef, event.data.externalReference!));
+},
+```
+
+Your database schema should include `"cancelled"` as a valid payment status alongside `"approved"`, `"rejected"`, and `"pending"`.
+
+### Handling re-attempts for pending/cancelled payments
+
+When a user with an existing pending or cancelled payment submits the form again, do **not** insert a new record. Instead, reuse the existing record and generate a new preference:
+
+```ts
+export async function createRegistration(data: RegistrationInput) {
+  const existing = await db
+    .select()
+    .from(registrations)
+    .where(eq(registrations.idNumber, data.idNumber))
+    .limit(1);
+
+  const record = existing[0];
+
+  // Block if already paid
+  if (record?.paymentStatus === "approved") {
+    return { error: "ALREADY_REGISTERED" };
+  }
+
+  const externalReference = `ORDER-${data.idNumber}-${Date.now()}`;
+
+  if (record) {
+    // Reuse the existing row — update the external reference for the new attempt
+    await db
+      .update(registrations)
+      .set({ mpExternalRef: externalReference, paymentStatus: "pending" })
+      .where(eq(registrations.idNumber, data.idNumber));
+  } else {
+    await db.insert(registrations).values({ ...data, mpExternalRef: externalReference });
+  }
+
+  const { url } = await mp.api.createPreference({
+    productId: "your-product",
+    externalReference,
+    // ... payer fields
+  });
+
+  redirect(url);
+}
+```
+
+Without this pattern, each re-attempt creates a new row. Since `mpExternalRef` has a UNIQUE constraint, the second attempt would also fail with a database error.
+
+### Always send full payer data
+
+Incomplete payer data degrades your integration quality score and can cause rejections (especially for offline payment methods like Efecty). Always send all available fields:
+
+```ts
+await mp.api.createPreference({
+  productId: "your-product",
+  externalReference: order.id,
+  payerEmail: user.email,           // required for whitelabel
+  payerFirstName: user.firstName,   // required for whitelabel
+  payerLastName: user.lastName,     // required for whitelabel
+  payerPhone: user.phone,           // required for whitelabel
+  payerIdentification: {
+    type: "CC",                     // required for whitelabel (Colombia)
+    number: user.documentNumber,
+  },
+});
+```
+
+### `categoryId` in pre-configured products
+
+When using `products` in config, always set `categoryId` — it is forwarded to the preference and improves fraud scoring:
+
+```ts
+products: {
+  inscripcion: {
+    title: "Event Registration",
+    unitPrice: 50000,
+    currencyId: "COP",
+    categoryId: "tickets", // ← always set this
+  },
+},
+```
 
 ---
 

@@ -256,8 +256,24 @@ In the MercadoPago developer dashboard:
 
 - Efecty is only available in **Colombia (COP)**
 - It only works for `whitelabel` integrations
-- Always set `binary_mode: false` — Efecty payments are always `pending` first (the buyer pays at a physical location)
+- Always set `binary_mode: false` — Efecty payments are always `pending` first (the buyer pays at a physical location within 3 days)
 - Do **not** test with your own MercadoPago account as the buyer — it will be rejected as `rejected_high_risk`
+
+#### Efecty payment lifecycle
+
+```
+User selects Efecty → payment.pending (webhook fires)
+                    ↓
+         Buyer pays at store within 3 days
+                    ↓
+                 payment.approved (webhook fires)
+
+         OR: 3 days pass without payment
+                    ↓
+                 payment.cancelled (webhook fires) ← this is "expired", not "rejected"
+```
+
+The `payment.cancelled` event for Efecty does not mean fraud or rejection — it means the ticket expired. The user is allowed to register again and get a new ticket. **Do not map `payment.cancelled` to a `rejected` status in your database** or you will permanently block that user from retrying.
 
 ---
 
@@ -284,6 +300,69 @@ In the MercadoPago developer dashboard:
 
 - Make sure to use the email from your **Buyer** test account
 - Subscriptions require a valid MercadoPago user email
+
+---
+
+## 8. Common Implementation Mistakes
+
+These are real bugs found in production integrations. Read this before shipping.
+
+### Mistake 1: Mapping `payment.cancelled` to `rejected`
+
+```ts
+// ❌ Wrong — locks out Efecty users whose ticket expired
+const statusMap = {
+  "payment.cancelled": "rejected",
+};
+
+// ✅ Correct — keep them separate
+const statusMap = {
+  "payment.cancelled": "cancelled", // expired, user can retry
+  "payment.rejected":  "rejected",  // refused, user should try different method
+};
+```
+
+Also add `"cancelled"` to your database schema's payment status enum.
+
+### Mistake 2: Inserting a new DB row on every payment attempt
+
+If a user submits the registration form twice (e.g. their Efecty expired and they try again), your code might try to insert a second row. This causes a UNIQUE constraint error on `mp_external_ref` and blocks the user permanently.
+
+```ts
+// ❌ Wrong — always inserts
+await db.insert(registrations).values({ ... });
+
+// ✅ Correct — check first, upsert if pending/cancelled
+const existing = await db.select().from(registrations)
+  .where(eq(registrations.idNumber, data.cedula)).limit(1);
+
+if (existing[0]?.paymentStatus === "approved") {
+  return { error: "ALREADY_REGISTERED" };
+}
+
+if (existing[0]) {
+  // Update existing row with new external reference
+  await db.update(registrations)
+    .set({ mpExternalRef: newExternalRef, paymentStatus: "pending" })
+    .where(eq(registrations.idNumber, data.cedula));
+} else {
+  await db.insert(registrations).values({ ..., mpExternalRef: newExternalRef });
+}
+```
+
+### Mistake 3: Missing payer data (silent whitelabel degradation)
+
+Sending a preference without payer fields doesn't cause an error — MP just assigns a lower integration quality score. The integration still works, but offline methods (Efecty, PSE, etc.) may be disabled silently. Always send all payer fields.
+
+### Mistake 4: Not verifying webhook signatures
+
+Without signature verification, anyone can POST fake payment events to your webhook endpoint. Set `webhookSecret` in your config to enable automatic verification.
+
+```ts
+export const mp = createMercadoPago({
+  webhookSecret: process.env.MP_WEBHOOK_SECRET!, // enables x-signature verification
+});
+```
 
 ---
 

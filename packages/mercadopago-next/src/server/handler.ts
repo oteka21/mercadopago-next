@@ -1,3 +1,4 @@
+import { createHmac } from "crypto";
 import { MercadoPagoConfig as MPConfig } from "mercadopago";
 import type {
   MercadoPagoConfig,
@@ -83,10 +84,51 @@ async function handleWebhook(
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const body = (await req.json()) as WebhookBody;
+  // Verify MP signature if webhookSecret is configured
+  if (config.webhookSecret) {
+    const xSignature = req.headers.get("x-signature");
+    const xRequestId = req.headers.get("x-request-id");
 
-  // Process webhook (fetches resource, normalizes event, calls onEvent)
-  await processWebhook(body, mpClient, config);
+    if (!xSignature) {
+      return jsonResponse({ error: "Missing x-signature header" }, 401);
+    }
+
+    // Parse ts and v1 from "ts=TIMESTAMP,v1=HASH"
+    const parts = Object.fromEntries(
+      xSignature.split(",").map((part) => part.split("=") as [string, string])
+    );
+    const ts = parts["ts"];
+    const v1 = parts["v1"];
+
+    if (!ts || !v1) {
+      return jsonResponse({ error: "Invalid x-signature format" }, 401);
+    }
+
+    // Reconstruct the signed template
+    const rawBody = await req.text();
+    const parsed = JSON.parse(rawBody) as WebhookBody;
+    const dataId = parsed.data?.id ?? "";
+    const template = [
+      `id:${dataId}`,
+      xRequestId ? `request-id:${xRequestId}` : null,
+      `ts:${ts}`,
+    ]
+      .filter(Boolean)
+      .join(";");
+
+    const expected = createHmac("sha256", config.webhookSecret)
+      .update(template)
+      .digest("hex");
+
+    if (expected !== v1) {
+      return jsonResponse({ error: "Invalid webhook signature" }, 401);
+    }
+
+    await processWebhook(parsed, mpClient, config);
+  } else {
+    const body = (await req.json()) as WebhookBody;
+    await processWebhook(body, mpClient, config);
+  }
 
   // Always return 200 to acknowledge receipt
   // MP will retry if we return non-200
